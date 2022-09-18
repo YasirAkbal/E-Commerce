@@ -8,6 +8,8 @@ import managers.base.ManagerI;
 
 public interface CartProductManagerI extends ManagerI<CartProduct> {
 	DataResult<List<CartProduct>> listAllByCartId(long cartId);
+
 	DataResult<Long> insertAndReturnGeneratedId(CartProduct cartProduct);
+
 	DataResult<CartProduct> deleteAndReturn(Long id);
 }

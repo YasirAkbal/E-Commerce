@@ -25,16 +25,16 @@ public class UserCheckServlet extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 	private final UserManagerI userManager;
 	private final XmlUtilI<User> userXmlUtil;
-	
+
 	public UserCheckServlet() {
 		this.userManager = new UserManager();
 		this.userXmlUtil = new UserXmlUtil();
 	}
-	
+
 	@Override
 	protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 		resp.setContentType(WebConstants.XML_CONTENT_TYPE);
-		
+
 		Document document;
 		try {
 			document = XmlUtils.parse(req.getInputStream());
@@ -42,11 +42,11 @@ public class UserCheckServlet extends HttpServlet {
 			resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
 			return;
 		}
-		
+
 		User user = userXmlUtil.parse(document);
-		
+
 		Result result = userManager.checkCredentials(user.getUsername(), user.getPassword());
-		
+
 		try {
 			Document outputDocument = XmlUtils.createStatusXml(result, resp.getOutputStream());
 			XmlUtils.dump(outputDocument, resp.getOutputStream());

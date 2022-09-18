@@ -27,23 +27,23 @@ public class UserCreateServlet extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 	private final UserManagerI userManager;
 	private final XmlUtilI<User> userXmlUtil;
-	
+
 	public UserCreateServlet() {
 		this.userManager = new UserManager();
 		this.userXmlUtil = new UserXmlUtil();
 	}
-	
+
 	@Override
 	protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 		resp.setContentType(WebConstants.XML_CONTENT_TYPE);
-		
+
 		Document document;
 		try {
 			document = XmlUtils.parse(req.getInputStream());
 		} catch (ParserConfigurationException | SAXException | IOException e) {
 			return;
 		}
-		
+
 		User user = userXmlUtil.parse(document);
 		Result result = userManager.insert(user);
 

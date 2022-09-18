@@ -16,25 +16,24 @@ import results.Result;
 import results.SuccessDataResult;
 
 class CartProductManager extends BasePostgreSqlManager<CartProduct> implements CartProductManagerI {
-	
+
 	@Override
 	public Result insert(CartProduct cartProduct) {
 		DataResult<PreparedStatement> result = createInsertStatement(cartProduct);
-		
-		if(!result.isSuccess())
+
+		if (!result.isSuccess())
 			return new ErrorResult(DbErrorMessages.INSERTION_FAILED);
-		
-		
+
 		return super.insert(result.getData());
 	}
 
 	@Override
 	public DataResult<Long> insertAndReturnGeneratedId(CartProduct cartProduct) {
 		DataResult<PreparedStatement> result = createInsertStatement(cartProduct);
-		
-		if(!result.isSuccess())
+
+		if (!result.isSuccess())
 			return new ErrorDataResult<>(DbErrorMessages.INSERTION_FAILED);
-		
+
 		return super.insertAndReturnGeneratedKey(result.getData());
 	}
 
@@ -44,7 +43,6 @@ class CartProductManager extends BasePostgreSqlManager<CartProduct> implements C
 		return null;
 	}
 
-
 	@Override
 	public Result delete(Long id) {
 		try {
@@ -52,19 +50,18 @@ class CartProductManager extends BasePostgreSqlManager<CartProduct> implements C
 		} catch (SQLException e) {
 			return new ErrorDataResult<>(new SQLException(DbErrorMessages.CONNECTION_FAILED, e).toString());
 		}
-		
+
 		PreparedStatement statement = null;
-		
+
 		try {
 			statement = connection.prepareStatement(SqlStrings.DELETE_STRING);
 			statement.setLong(1, id);
 		} catch (SQLException e) {
 			return new ErrorDataResult<>(new SQLException(DbErrorMessages.DELETION_FAILED, e).toString());
 		}
-		
+
 		return super.delete(statement);
 	}
-
 
 	@Override
 	public DataResult<CartProduct> find(Long id) {
@@ -73,15 +70,15 @@ class CartProductManager extends BasePostgreSqlManager<CartProduct> implements C
 		} catch (SQLException e) {
 			return new ErrorDataResult<>(new SQLException(DbErrorMessages.CONNECTION_FAILED, e).toString());
 		}
-		
+
 		DataResult<PreparedStatement> result = createFindByIdStatement(SqlStrings.SELECT_BY_ID_STRING, id);
-		
-		if(!result.isSuccess())
+
+		if (!result.isSuccess())
 			return new ErrorDataResult<>(DbErrorMessages.SELECT_FAILED);
-		
+
 		return super.find(result.getData());
 	}
-	
+
 	@Override
 	public DataResult<List<CartProduct>> listAllByCartId(long cartId) {
 		try {
@@ -89,19 +86,19 @@ class CartProductManager extends BasePostgreSqlManager<CartProduct> implements C
 		} catch (SQLException e) {
 			return new ErrorDataResult<>(new SQLException(DbErrorMessages.CONNECTION_FAILED, e).toString());
 		}
-		
+
 		DataResult<PreparedStatement> result = createFindByIdStatement(SqlStrings.SELECT_BY_CART_ID_STRING, cartId);
-		
-		if(!result.isSuccess())
+
+		if (!result.isSuccess())
 			return new ErrorDataResult<>(DbErrorMessages.SELECT_FAILED);
-		
+
 		return super.listAll(result.getData());
 	}
 
 	@Override
 	protected DataResult<CartProduct> parse(ResultSet resultSet) throws SQLException {
 		CartProduct cartProduct;
-		
+
 		long id = resultSet.getLong(TableColumnNames.ID);
 		long cartId = resultSet.getLong(TableColumnNames.CART_ID);
 		long productId = resultSet.getLong(TableColumnNames.PRODUCT_ID);
@@ -110,19 +107,18 @@ class CartProductManager extends BasePostgreSqlManager<CartProduct> implements C
 		double taxRate = Double.parseDouble(resultSet.getString(TableColumnNames.TAX_RATE));
 		double lineAmount = Double.parseDouble(resultSet.getString(TableColumnNames.LINE_AMOUNT));
 
-		cartProduct = new CartProduct(id,cartId,productId,salesQuantity,salesPrice,taxRate,lineAmount);
-		
+		cartProduct = new CartProduct(id, cartId, productId, salesQuantity, salesPrice, taxRate, lineAmount);
+
 		return new SuccessDataResult<>(cartProduct);
 	}
-	
-	
+
 	private DataResult<PreparedStatement> createInsertStatement(CartProduct cartProduct) {
 		try {
 			connect();
 		} catch (SQLException e) {
 			return new ErrorDataResult<>(new SQLException(DbErrorMessages.CONNECTION_FAILED, e).toString());
 		}
-		
+
 		PreparedStatement statement;
 		try {
 			statement = connection.prepareStatement(SqlStrings.INSERT_STRING, Statement.RETURN_GENERATED_KEYS);
@@ -135,10 +131,10 @@ class CartProductManager extends BasePostgreSqlManager<CartProduct> implements C
 		} catch (SQLException e) {
 			return new ErrorDataResult<>(new SQLException(DbErrorMessages.INSERTION_FAILED, e).toString());
 		}
-		
+
 		return new SuccessDataResult<>(statement);
 	}
-	
+
 	@Override
 	public DataResult<CartProduct> deleteAndReturn(Long id) {
 		try {
@@ -146,21 +142,21 @@ class CartProductManager extends BasePostgreSqlManager<CartProduct> implements C
 		} catch (SQLException e) {
 			return new ErrorDataResult<>(new SQLException(DbErrorMessages.CONNECTION_FAILED, e).toString());
 		}
-		
+
 		PreparedStatement statement;
-		
+
 		try {
 			statement = connection.prepareStatement(SqlStrings.DELETE_STRING);
 			statement.setLong(1, id);
 		} catch (SQLException e) {
 			return new ErrorDataResult<>(new SQLException(DbErrorMessages.DELETION_FAILED, e).toString());
 		}
-		
+
 		DataResult<PreparedStatement> result = createFindByIdStatement(SqlStrings.SELECT_BY_ID_STRING, id);
-		
-		if(!result.isSuccess())
+
+		if (!result.isSuccess())
 			return new ErrorDataResult<>(DbErrorMessages.SELECT_FAILED);
-		
+
 		return super.deleteAndReturn(result.getData(), statement);
 	}
 
@@ -172,7 +168,7 @@ class CartProductManager extends BasePostgreSqlManager<CartProduct> implements C
 				+ " values(?,?,?,?,?,?)";
 		private static final String DELETE_STRING = "delete from cart_products where id = ?";
 	}
-	
+
 	private static class TableColumnNames {
 		private static final String ID = "id";
 		private static final String CART_ID = "cart_id";

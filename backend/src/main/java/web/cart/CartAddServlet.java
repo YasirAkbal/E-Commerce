@@ -27,16 +27,16 @@ public class CartAddServlet extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 	private final CartManagerI cartManager;
 	private final XmlUtilI<CartProduct> cartProductXmlUtil;
-	
+
 	public CartAddServlet() {
 		this.cartManager = new CartManager();
 		this.cartProductXmlUtil = new CartProductXmlUtil();
 	}
-	
+
 	@Override
 	protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 		resp.setContentType(WebConstants.XML_CONTENT_TYPE);
-		
+
 		Document document;
 		try {
 			document = XmlUtils.parse(req.getInputStream());
@@ -45,12 +45,12 @@ public class CartAddServlet extends HttpServlet {
 			e.printStackTrace();
 			return;
 		}
-		
+
 		CartProduct cartProduct = cartProductXmlUtil.parse(document);
 		DataResult<Long> result = cartManager.addCardProductToCart(cartProduct);
 		Document outputDocument;
-		
-		if(result.isSuccess()) {
+
+		if (result.isSuccess()) {
 			cartProduct.setId(result.getData());
 			outputDocument = (Document) cartProductXmlUtil.format(cartProduct).getData();
 			XmlUtils.setSuccessTrue(outputDocument);
@@ -62,7 +62,7 @@ public class CartAddServlet extends HttpServlet {
 				return;
 			}
 		}
-		
+
 		try {
 			XmlUtils.dump(outputDocument, resp.getOutputStream());
 		} catch (IOException | TransformerException e) {

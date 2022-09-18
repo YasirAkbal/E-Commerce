@@ -24,27 +24,27 @@ public class CartRemoveServlet extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 	private CartManagerI cartManager;
 	private final XmlUtilI<CartProduct> cartProductXmlUtil;
-	
+
 	public CartRemoveServlet() {
 		this.cartManager = new CartManager();
 		this.cartProductXmlUtil = new CartProductXmlUtil();
 	}
-	
+
 	@Override
 	protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 		resp.setContentType(WebConstants.XML_CONTENT_TYPE);
-		
+
 		long cartProductId = Long.parseLong(req.getParameter("cartProductId"));
-		
+
 		DataResult<CartProduct> result = cartManager.deleteCardProductFromCart(cartProductId);
-		if(result.isSuccess()) {
+		if (result.isSuccess()) {
 			Document document = (Document) cartProductXmlUtil.format(result.getData()).getData();
-			
+
 			try {
 				XmlUtils.dump(document, resp.getOutputStream());
 			} catch (IOException | TransformerException e) {
 				e.printStackTrace();
 			}
-		}		
+		}
 	}
 }
