@@ -124,20 +124,6 @@ public class CartProductXmlUtil implements XmlUtilI<CartProduct> {
 		return new SuccessDataResult<Document>(document);
 	}
 	
-	public void setCartProductFields(CartProduct cartProduct, Document document, Element cartElement) {
-		Element cartProductElement = document.createElement(XmlAttributeNames.CART_PRODUCT);
-		
-		cartProductElement.setAttribute(XmlAttributeNames.ID, String.valueOf(cartProduct.getId()));
-		XmlUtils.addSingleElementText(document, cartProductElement, XmlAttributeNames.CART_ID, cartProduct.getCartId());
-		XmlUtils.addSingleElementText(document, cartProductElement, XmlAttributeNames.PRODUCT_ID, cartProduct.getProductId());
-		XmlUtils.addSingleElementText(document, cartProductElement, XmlAttributeNames.SALES_QUANTITY, cartProduct.getSalesQuantity());
-		XmlUtils.addSingleElementText(document, cartProductElement, XmlAttributeNames.SALES_PRICE, cartProduct.getSalesPrice());
-		XmlUtils.addSingleElementText(document, cartProductElement, XmlAttributeNames.TAX_RATE, cartProduct.getTaxRate());
-		XmlUtils.addSingleElementText(document, cartProductElement, XmlAttributeNames.LINE_AMOUNT, cartProduct.getLineAmount());
-		
-		cartElement.appendChild(cartProductElement);
-	}
-	
 	public static class XmlAttributeNames {
 		private static final String ID = "id";
 		private static final String CART_ID = "cartId";

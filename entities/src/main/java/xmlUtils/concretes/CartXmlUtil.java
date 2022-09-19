@@ -88,16 +88,7 @@ public class CartXmlUtil implements XmlUtilI<Cart> {
 		setCartFields(cart, document, cartElement);
 		
 		if(cart.getCartProducts() != null)  {
-			//formatCartProducts(cart.getCartProducts(), document, cartElement);
 			cartProductXmlUtil.format(cart.getCartProducts(), document, cartElement);
-		}
-	}
-	
-	private void formatCartProducts(List<CartProduct> cartProducts, Document document, Element cartElement) {	
-		for(CartProduct cartProduct : cartProducts) {
-			Element cartProductElement = document.createElement(CartProductXmlUtil.XmlAttributeNames.CART_PRODUCT);
-			cartProductXmlUtil.setFields(cartProduct, document, cartProductElement);
-			cartElement.appendChild(cartProductElement);
 		}
 	}
 	
@@ -111,7 +102,6 @@ public class CartXmlUtil implements XmlUtilI<Cart> {
 		Cart cart = parseCartFromXml(cartElement);
 		List<CartProduct> cartProducts;
 		
-		//cartProducts = parseCartProducts(cartElement);
 		cartProducts = cartProductXmlUtil.parseList(cartElement);
 		cart.setCartProducts(cartProducts);
 
@@ -126,18 +116,6 @@ public class CartXmlUtil implements XmlUtilI<Cart> {
 		Cart cart = new Cart(id, totalAmount, customerName);
 		
 		return cart;
-	}
-	
-	private List<CartProduct> parseCartProducts(Element cartElement) {
-		List<CartProduct> cartProducts = new ArrayList<CartProduct>();
-		NodeList cartProductsElement = cartElement.getElementsByTagName(CartProductXmlUtil.XmlAttributeNames.CART_PRODUCT);
-		
-		for(int i=0;i<cartProductsElement.getLength();i++) {
-			CartProduct cartProduct = cartProductXmlUtil.parse((Element)cartProductsElement.item(i));
-			cartProducts.add(cartProduct);
-		}
-		
-		return cartProducts;
 	}
 	
 	private static class XmlAttributeNames {
