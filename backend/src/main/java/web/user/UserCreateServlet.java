@@ -17,6 +17,8 @@ import managers.abstracts.UserManagerI;
 import managers.concretes.UserManager;
 import results.DataResult;
 import results.Result;
+import utils.HashUtil;
+import utils.StreamUtils;
 import utils.XmlUtils;
 import xmlUtils.abstracts.XmlUtilI;
 import xmlUtils.concretes.CartXmlUtil;
@@ -37,22 +39,22 @@ public class UserCreateServlet extends HttpServlet {
 	protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 		resp.setContentType(WebConstants.XML_CONTENT_TYPE);
 
-		Document document;
+		Document inputDocument, outputDocument;
 		try {
-			document = XmlUtils.parse(req.getInputStream());
-		} catch (ParserConfigurationException | SAXException | IOException e) {
-			return;
-		}
-
-		User user = userXmlUtil.parse(document);
-		Result result = userManager.insert(user);
-
-		try {
-			Document outputDocument = XmlUtils.createStatusXml(result, resp.getOutputStream());
+			inputDocument = XmlUtils.parse(req.getInputStream());
+			User user = userXmlUtil.parse(inputDocument);
+			
+			final String passwordHash = HashUtil.toSha3_256(user.getPassword());
+			user.setPassword(passwordHash);
+			Result resultFromUserManager = userManager.insert(user);
+			
+			outputDocument = XmlUtils.createStatusXml(resultFromUserManager, resp.getOutputStream());
+			
+			StreamUtils.setResponseStatus(resultFromUserManager, resp, HttpServletResponse.SC_CREATED, HttpServletResponse.SC_BAD_REQUEST);
 			XmlUtils.dump(outputDocument, resp.getOutputStream());
-		} catch (ParserConfigurationException | IOException | TransformerException e) {
-			// TODO Auto-generated catch block
+		} catch (ParserConfigurationException | SAXException | IOException | TransformerException e) {
 			e.printStackTrace();
+			resp.sendError(HttpServletResponse.SC_BAD_REQUEST);
 		}
 	}
 }

@@ -13,6 +13,8 @@ import constants.WebConstants;
 import entities.concretes.*;
 import managers.abstracts.CategoryManagerI;
 import managers.concretes.CategoryManager;
+import results.DataResult;
+import utils.StreamUtils;
 import utils.XmlUtils;
 import xmlUtils.abstracts.XmlUtilI;
 import xmlUtils.concretes.CategoryXmlUtil;
@@ -32,15 +34,27 @@ public class CategoryListServlet extends HttpServlet {
 
 	@Override
 	protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+		resp.setContentType(WebConstants.XML_CONTENT_TYPE);
+		
 		try {
-			List<Category> categoryList = categoryManager.listAll().getData();
-
-			Document document = (Document) categoryXmlUtil.format(categoryList).getData();
-
-			resp.setContentType(WebConstants.XML_CONTENT_TYPE);
-
-			XmlUtils.dump(document, resp.getOutputStream());
+			DataResult<List<Category>> resultFromListAll = categoryManager.listAll();
+			Document outputDocument;
+			
+			if(resultFromListAll.isSuccess()) {	
+				DataResult<Document> resultFromCreateDocument 
+				= XmlUtils.createResponseDocumentFromDataResultList(resultFromListAll, categoryXmlUtil);
+				
+				outputDocument = resultFromCreateDocument.getData();
+				
+				StreamUtils.setResponseStatus(resultFromCreateDocument, resp, HttpServletResponse.SC_OK, HttpServletResponse.SC_BAD_REQUEST);
+			} else {
+				outputDocument = XmlUtils.createSuccessFalseXml();
+				resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+			}
+		
+			XmlUtils.dump(outputDocument, resp.getOutputStream());
 		} catch (Exception e) {
+			resp.sendError(HttpServletResponse.SC_BAD_REQUEST);
 			e.printStackTrace();
 		}
 	}

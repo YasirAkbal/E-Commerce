@@ -1,6 +1,8 @@
 package utils;
 
 import java.io.*;
+import java.util.List;
+
 import javax.xml.parsers.*;
 import javax.xml.transform.*;
 import javax.xml.transform.dom.DOMSource;
@@ -11,7 +13,12 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
+import entities.abstracts.EntityI;
 import messages.XmlMessages;
+import results.DataResult;
+import results.ErrorDataResult;
+import results.SuccessDataResult;
+import xmlUtils.abstracts.XmlFormatterI;
 
 public final class XmlUtils {
 	
@@ -146,14 +153,26 @@ public final class XmlUtils {
 		}
 	}
 	
-	public static Document createStatusXml(results.Result result, OutputStream outputStream) throws ParserConfigurationException {
-		Document outputDocument = XmlUtils.create(RESULT);
-				
+	public static Document createStatusXml(results.Result result, OutputStream outputStream) throws ParserConfigurationException {		
 		if(result.isSuccess()) {
-			XmlUtils.setSuccessTrue(outputDocument);
+			return createSuccessTrueXml();
 		} else {
-			XmlUtils.setSuccessFalse(outputDocument);	
+			return createSuccessFalseXml();
 		}
+	}
+	
+	public static Document createSuccessTrueXml() throws ParserConfigurationException {
+		Document outputDocument = XmlUtils.create(RESULT);
+		
+		XmlUtils.setSuccessTrue(outputDocument);
+		
+		return outputDocument;
+	}
+	
+	public static Document createSuccessFalseXml() throws ParserConfigurationException {
+		Document outputDocument = XmlUtils.create(RESULT);
+		
+		XmlUtils.setSuccessFalse(outputDocument);
 		
 		return outputDocument;
 	}
@@ -170,4 +189,61 @@ public final class XmlUtils {
 		
 		return status.equals(XmlMessages.TRUE);
 	}
+	
+	public static<T extends EntityI> DataResult<Document> 
+	createResponseDocumentFromDataResult(DataResult<T> result, XmlFormatterI<T> formatter) throws ParserConfigurationException {
+		Document outputDocument;
+		
+		if(result.isSuccess()) {
+			T entity = result.getData();
+			DataResult<Document> resultFromFormatter = formatter.format(entity);
+			
+			outputDocument = setStatusToDocument(resultFromFormatter);
+			return new SuccessDataResult<>(outputDocument);
+		} else {
+			outputDocument = createSuccessFalseXml();
+			return new ErrorDataResult<>(outputDocument);
+		}
+	}
+	
+	public static<T extends EntityI> DataResult<Document> 
+	createResponseDocumentFromDataResultList(DataResult<List<T>> result, XmlFormatterI<T> formatter) throws ParserConfigurationException {
+		Document outputDocument;
+		
+		if(result.isSuccess()) {
+			List<T> entities = result.getData();
+			DataResult<Document> resultFromFormatter = formatter.format(entities);
+			
+			outputDocument = setStatusToDocument(resultFromFormatter);
+			return new SuccessDataResult<>(outputDocument);
+		} else {
+			outputDocument = createSuccessFalseXml();
+			return new ErrorDataResult<>(outputDocument);
+		}
+	}
+
+	private static Document setStatusToDocument(DataResult<Document> resultFromFormatter) throws ParserConfigurationException {
+		Document outputDocument;
+		if(resultFromFormatter.isSuccess()) {
+			outputDocument = resultFromFormatter.getData();
+			setSuccessTrue(outputDocument);
+		} else {
+			outputDocument = createSuccessFalseXml();
+		}
+		return outputDocument;
+	}
+
+	public static Document setSuccessTrueIfSuccessfulOtherwiseCreateSuccessFalseDocument(DataResult<Document> result) throws ParserConfigurationException  {
+		Document document;
+		
+		if(result.isSuccess()) {
+			document = result.getData();
+			XmlUtils.setSuccessTrue(document);
+		} else {
+			document = createSuccessFalseXml();
+		}
+		
+		return document;
+	}
+	
 }

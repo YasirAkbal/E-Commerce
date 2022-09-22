@@ -1,8 +1,20 @@
 package utils;
 
-import java.io.*;
-import java.net.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
 
+import javax.servlet.http.HttpServletResponse;
+
+import results.Result;
 
 public final class StreamUtils {
 	
@@ -51,5 +63,11 @@ public final class StreamUtils {
 
 		String input = read(connection.getInputStream());
 		return input;
+	}
+	
+	public static void setResponseStatus(Result result, HttpServletResponse response,
+			int successTrueStatus, int successFalseStatus) {
+		final int status = result.isSuccess() ? successTrueStatus : successFalseStatus;
+		response.setStatus(status);
 	}
 }

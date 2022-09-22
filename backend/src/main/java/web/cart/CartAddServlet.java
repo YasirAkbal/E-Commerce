@@ -16,6 +16,7 @@ import entities.concretes.*;
 import managers.abstracts.CartManagerI;
 import managers.concretes.CartManager;
 import results.DataResult;
+import utils.StreamUtils;
 import utils.XmlUtils;
 import xmlUtils.abstracts.XmlUtilI;
 import xmlUtils.concretes.CartProductXmlUtil;
@@ -37,36 +38,30 @@ public class CartAddServlet extends HttpServlet {
 	protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 		resp.setContentType(WebConstants.XML_CONTENT_TYPE);
 
-		Document document;
+		Document inputDocument;
 		try {
-			document = XmlUtils.parse(req.getInputStream());
-		} catch (ParserConfigurationException | SAXException | IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			return;
-		}
-
-		CartProduct cartProduct = cartProductXmlUtil.parse(document);
-		DataResult<Long> result = cartManager.addCardProductToCart(cartProduct);
-		Document outputDocument;
-
-		if (result.isSuccess()) {
-			cartProduct.setId(result.getData());
-			outputDocument = (Document) cartProductXmlUtil.format(cartProduct).getData();
-			XmlUtils.setSuccessTrue(outputDocument);
-		} else {
-			try {
-				outputDocument = XmlUtils.createStatusXml(result, resp.getOutputStream());
-			} catch (ParserConfigurationException | IOException e) {
-				e.printStackTrace();
-				return;
-			}
-		}
-
-		try {
+			inputDocument = XmlUtils.parse(req.getInputStream());
+			CartProduct cartProduct = cartProductXmlUtil.parse(inputDocument);
+			DataResult<Long> resultFromManager = cartManager.addCardProductToCart(cartProduct);
+			
+			Document outputDocument;
+			if (resultFromManager.isSuccess()) {
+				cartProduct.setId(resultFromManager.getData());
+				
+				DataResult<Document> resultFromParse = cartProductXmlUtil.format(cartProduct);
+				outputDocument = XmlUtils.setSuccessTrueIfSuccessfulOtherwiseCreateSuccessFalseDocument(resultFromParse);	
+				
+				StreamUtils.setResponseStatus(resultFromParse, resp, HttpServletResponse.SC_OK, HttpServletResponse.SC_BAD_REQUEST);
+			} else {
+				outputDocument = XmlUtils.createSuccessFalseXml();
+				resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+			}	
+			
 			XmlUtils.dump(outputDocument, resp.getOutputStream());
-		} catch (IOException | TransformerException e) {
+		} catch (ParserConfigurationException | SAXException | IOException | TransformerException e) {
+			resp.sendError(HttpServletResponse.SC_BAD_REQUEST);
 			e.printStackTrace();
 		}
+
 	}
 }

@@ -1,5 +1,6 @@
 package managers.concretes;
 
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -27,30 +28,32 @@ public class ProductManager extends BasePostgreSqlManager<Product> implements Pr
 		Category category = new Category(resultSet.getLong(TableColumnNames.CATEGORY_ID),
 				resultSet.getString(TableColumnNames.CATEGORY_NAME));
 		product = new Product(productId, productName, salesPrice, imagePath, category);
+		
 		return new SuccessDataResult<>(product);
 	}
 
 	@Override
 	public Result insert(Product product) {
+		Result connectionResult = connect();
+		if(!connectionResult.isSuccess())
+			return connectionResult;
+		
 		try {
-			connect();
-		} catch (SQLException e) {
-			return new ErrorDataResult<>(new SQLException(DbErrorMessages.CONNECTION_FAILED, e).toString());
-		}
-
-		PreparedStatement statement;
-		try {
-			statement = connection.prepareStatement(SqlStrings.INSERT_STRING);
+			PreparedStatement statement = connection.prepareStatement(SqlStrings.INSERT_STRING);
+			
 			statement.setLong(1, product.getProductId());
 			statement.setString(2, product.getProductName());
 			statement.setDouble(3, product.getSalesPrice());
 			statement.setString(4, product.getImagePath());
 			statement.setLong(5, product.getCategory().getCategoryId());
+			
+			return super.insert(statement);
 		} catch (SQLException e) {
-			return new ErrorDataResult<>(new SQLException(DbErrorMessages.INSERTION_FAILED, e).toString());
+			disconnect();
+			return new ErrorDataResult<>(DbErrorMessages.INSERTION_FAILED);
+		} finally {
+			disconnect();
 		}
-
-		return super.insert(statement);
 	}
 
 	@Override
@@ -61,22 +64,54 @@ public class ProductManager extends BasePostgreSqlManager<Product> implements Pr
 
 	@Override
 	public Result delete(Long id) {
-		return super.deleteById(SqlStrings.DELETE_BY_ID, id);
+		try {
+			Result connectionResult = connect();
+			if(!connectionResult.isSuccess())
+				return connectionResult;
+			
+			return super.deleteById(SqlStrings.DELETE_BY_ID, id);
+		} finally {
+			disconnect();
+		}
 	}
 
 	@Override
 	public DataResult<Product> find(Long id) {
-		return find(SqlStrings.SELECT_PRODUCTS_BY_ID_WITH_CATEGORY_JOIN, id);
+		try {
+			Result connectionResult = connect();
+			if(!connectionResult.isSuccess())
+				return new ErrorDataResult<>(connectionResult.getMessage());
+			
+			return find(SqlStrings.SELECT_PRODUCTS_BY_ID_WITH_CATEGORY_JOIN, id);
+		} finally {
+			disconnect();
+		}
 	}
 
 	@Override
 	public DataResult<List<Product>> findByCategory(long categoryId) {
-		return listAll(SqlStrings.SELECT_PRODUCTS_BY_CATEGORY_ID_WITH_CATEGORY_JOIN, categoryId);
+		try {
+			Result connectionResult = connect();
+			if(!connectionResult.isSuccess())
+				return new ErrorDataResult<>(connectionResult.getMessage());
+			
+			return listAll(SqlStrings.SELECT_PRODUCTS_BY_CATEGORY_ID_WITH_CATEGORY_JOIN, categoryId);
+		} finally {
+			disconnect();
+		}
 	}
 
 	@Override
 	public DataResult<List<Product>> listAll() {
-		return super.listAll(SqlStrings.SELECT_PRODUCTS_WITH_CATEGORY_JOIN);
+		try {
+			Result connectionResult = connect();
+			if(!connectionResult.isSuccess())
+				return new ErrorDataResult<>(connectionResult.getMessage());
+			
+			return super.listAll(SqlStrings.SELECT_PRODUCTS_WITH_CATEGORY_JOIN);
+		} finally {
+			disconnect();
+		}
 	}
 
 	private static class SqlStrings {

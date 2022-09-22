@@ -16,6 +16,8 @@ import entities.concretes.*;
 import managers.abstracts.UserManagerI;
 import managers.concretes.UserManager;
 import results.Result;
+import utils.HashUtil;
+import utils.StreamUtils;
 import utils.XmlUtils;
 import xmlUtils.abstracts.XmlUtilI;
 import xmlUtils.concretes.UserXmlUtil;
@@ -35,24 +37,21 @@ public class UserCheckServlet extends HttpServlet {
 	protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 		resp.setContentType(WebConstants.XML_CONTENT_TYPE);
 
-		Document document;
+		Document inputDocument, outputDocument;
 		try {
-			document = XmlUtils.parse(req.getInputStream());
-		} catch (ParserConfigurationException | SAXException | IOException e) {
-			resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-			return;
-		}
-
-		User user = userXmlUtil.parse(document);
-
-		Result result = userManager.checkCredentials(user.getUsername(), user.getPassword());
-
-		try {
-			Document outputDocument = XmlUtils.createStatusXml(result, resp.getOutputStream());
+			inputDocument = XmlUtils.parse(req.getInputStream());
+			User user = userXmlUtil.parse(inputDocument);
+			
+			final String passwordHash = HashUtil.toSha3_256(user.getPassword());
+			Result resultFromCheckCredentials = userManager.checkCredentials(user.getUsername(), passwordHash);
+			
+			outputDocument = XmlUtils.createStatusXml(resultFromCheckCredentials, resp.getOutputStream());
+			
+			StreamUtils.setResponseStatus(resultFromCheckCredentials, resp, HttpServletResponse.SC_OK, HttpServletResponse.SC_BAD_REQUEST);
 			XmlUtils.dump(outputDocument, resp.getOutputStream());
-		} catch (ParserConfigurationException | IOException | TransformerException e) {
-			// TODO Auto-generated catch block
+		} catch (ParserConfigurationException | SAXException | IOException | TransformerException e) {
 			e.printStackTrace();
+			resp.sendError(HttpServletResponse.SC_BAD_REQUEST);
 		}
 	}
 }

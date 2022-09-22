@@ -17,6 +17,7 @@ import managers.abstracts.CartManagerI;
 import managers.concretes.CartManager;
 import results.DataResult;
 import results.Result;
+import utils.StreamUtils;
 import utils.XmlUtils;
 import xmlUtils.abstracts.XmlUtilI;
 import xmlUtils.concretes.CartXmlUtil;
@@ -39,26 +40,26 @@ public class CartViewServlet extends HttpServlet {
 
 		long cartId = Long.parseLong(req.getParameter("cartId"));
 
-		DataResult<Cart> result = cartManager.find(cartId);
-		Document document;
-		if (!result.isSuccess()) {
-			try {
-				document = XmlUtils.createStatusXml(result, resp.getOutputStream());
-			} catch (ParserConfigurationException | IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-				return;
-			}
-		} else {
-			Cart cart = result.getData();
-			document = (Document) cartXmlUtil.format(cart).getData();
-			XmlUtils.setSuccessTrue(document);
-		}
-
+		DataResult<Cart> resultFromManager = cartManager.find(cartId);
+		
+		Document outputDocument;
 		try {
-			XmlUtils.dump(document, resp.getOutputStream());
-		} catch (IOException | TransformerException e) {
+			if (resultFromManager.isSuccess()) {
+				Cart cart = resultFromManager.getData();
+				DataResult<Document> resultFromFormatter = cartXmlUtil.format(cart);
+				
+				outputDocument = XmlUtils.setSuccessTrueIfSuccessfulOtherwiseCreateSuccessFalseDocument(resultFromFormatter);	
+				
+				StreamUtils.setResponseStatus(resultFromFormatter, resp, HttpServletResponse.SC_OK, HttpServletResponse.SC_BAD_REQUEST);
+			} else {
+				outputDocument = XmlUtils.createSuccessFalseXml();
+				resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+			}
+			
+			XmlUtils.dump(outputDocument, resp.getOutputStream());
+		} catch (IOException | TransformerException | ParserConfigurationException e) {
 			e.printStackTrace();
+			resp.sendError(HttpServletResponse.SC_BAD_REQUEST);
 		}
 	}
 }

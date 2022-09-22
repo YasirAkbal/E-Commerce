@@ -13,4 +13,6 @@ public final class DbErrorMessages {
 	public static String EXECUTE_UPDATE_FAILED = "Execute Update failed";
 	public static String NO_AFFECTED_ROWS = "No affected rows";
 	public static String RESULT_SET_PARSING_ERROR = "Error when parsing result set";
+	public static String TRANSACTION_ROLLBACK_ERROR = "Rollback error";
+	public static String PREPARED_STATEMENT_ERROR = "Error when creating prepared statement";
 }

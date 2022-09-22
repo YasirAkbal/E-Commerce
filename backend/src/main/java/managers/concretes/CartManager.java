@@ -1,5 +1,6 @@
 package managers.concretes;
 
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -27,34 +28,44 @@ public class CartManager extends BasePostgreSqlManager<Cart> implements CartMana
 
 	@Override
 	public Result insert(Cart cart) {
-		PreparedStatement statement = null;
+		try {
+			Result connectionResult = connect();
+			if(!connectionResult.isSuccess())
+				return new ErrorDataResult<>(connectionResult.getMessage());
+			
+			PreparedStatement statement = null;
 
-		DataResult<PreparedStatement> result = createInsertStatement(cart);
-		if (!result.isSuccess())
-			return new ErrorDataResult<>(DbErrorMessages.INSERTION_FAILED);
+			DataResult<PreparedStatement> result = createInsertStatement(cart);
+			if (!result.isSuccess())
+				return new ErrorDataResult<>(DbErrorMessages.INSERTION_FAILED);
 
-		statement = result.getData();
+			statement = result.getData();
 
-		return super.insert(statement);
+			return super.insert(statement);
+		} finally {
+			disconnect();
+		}
 	}
 
 	@Override
 	public DataResult<Long> insertAndReturnGeneratedId(Cart cart) {
 		try {
-			connect();
-		} catch (SQLException e) {
-			return new ErrorDataResult<>(new SQLException(DbErrorMessages.CONNECTION_FAILED, e).toString());
+			Result connectionResult = connect();
+			if(!connectionResult.isSuccess())
+				return new ErrorDataResult<>(connectionResult.getMessage());
+			
+			PreparedStatement statement;
+
+			DataResult<PreparedStatement> result = createInsertStatement(cart);
+			if (!result.isSuccess())
+				return new ErrorDataResult<>(DbErrorMessages.INSERTION_FAILED);
+
+			statement = result.getData();
+
+			return super.insertAndReturnGeneratedKey(statement);
+		} finally {
+			disconnect();
 		}
-
-		PreparedStatement statement = null;
-
-		DataResult<PreparedStatement> result = createInsertStatement(cart);
-		if (!result.isSuccess())
-			return new ErrorDataResult<>(DbErrorMessages.INSERTION_FAILED);
-
-		statement = result.getData();
-
-		return super.insertAndReturnGeneratedKey(statement);
 	}
 
 	@Override
@@ -65,33 +76,57 @@ public class CartManager extends BasePostgreSqlManager<Cart> implements CartMana
 
 	@Override
 	public Result delete(Long id) {
-		return super.deleteById(SqlStrings.DELETE_STRING, id);
+		try {
+			Result connectionResult = connect();
+			if(!connectionResult.isSuccess())
+				return connectionResult;
+			
+			return super.deleteById(SqlStrings.DELETE_STRING, id);
+		} finally {
+			disconnect();
+		}
 	}
 
 	@Override
 	public DataResult<Cart> find(Long id) {
-		DataResult<Cart> cartResult = findOnlyCart(id);
-		if (!cartResult.isSuccess())
-			return new ErrorDataResult<>(DbErrorMessages.SELECT_FAILED);
+		try {
+			Result connectionResult = connect();
+			if(!connectionResult.isSuccess())
+				return new ErrorDataResult<>(connectionResult.getMessage());
+			
+			DataResult<Cart> cartResult = findOnlyCart(id);
+			if (!cartResult.isSuccess())
+				return new ErrorDataResult<>(DbErrorMessages.SELECT_FAILED);
 
-		DataResult<List<CartProduct>> cartProductResult = cartProductManager.listAllByCartId(id);
-		if (!cartProductResult.isSuccess())
-			return new ErrorDataResult<>(DbErrorMessages.SELECT_FAILED);
+			DataResult<List<CartProduct>> cartProductResult = cartProductManager.listAllByCartId(id);
+			if (!cartProductResult.isSuccess())
+				return new ErrorDataResult<>(DbErrorMessages.SELECT_FAILED);
 
-		Cart cart = cartResult.getData();
-		List<CartProduct> cartProducts = cartProductResult.getData();
-		cart.setCartProducts(cartProducts);
+			Cart cart = cartResult.getData();
+			List<CartProduct> cartProducts = cartProductResult.getData();
+			cart.setCartProducts(cartProducts);
 
-		return new SuccessDataResult<>(cart);
+			return new SuccessDataResult<>(cart);
+		} finally {
+			disconnect();
+		}
 	}
 
 	private DataResult<Cart> findOnlyCart(long id) {
-		DataResult<PreparedStatement> result = createFindByIdStatement(SqlStrings.SELECT_BY_ID_STRING, id);
+		try {
+			Result connectionResult = connect();
+			if(!connectionResult.isSuccess())
+				return new ErrorDataResult<>(connectionResult.getMessage());
+			
+			DataResult<PreparedStatement> result = createStatementAndSetId(SqlStrings.SELECT_BY_ID_STRING, id);
 
-		if (!result.isSuccess())
-			return new ErrorDataResult<>(DbErrorMessages.SELECT_FAILED);
+			if (!result.isSuccess())
+				return new ErrorDataResult<>(DbErrorMessages.SELECT_FAILED);
 
-		return super.find(result.getData());
+			return super.find(result.getData());
+		} finally {
+			disconnect();
+		}
 	}
 
 	@Override
@@ -112,69 +147,91 @@ public class CartManager extends BasePostgreSqlManager<Cart> implements CartMana
 	}
 
 	private DataResult<PreparedStatement> createInsertStatement(Cart cart) {
-		PreparedStatement statement = null;
-
 		try {
-			statement = connection.prepareStatement(SqlStrings.INSERT_STRING, Statement.RETURN_GENERATED_KEYS);
+			PreparedStatement statement = connection.prepareStatement(SqlStrings.INSERT_STRING, Statement.RETURN_GENERATED_KEYS);
+					
 			statement.setDouble(1, cart.getTotalAmount());
 			statement.setString(2, cart.getCustomerName());
+			
+			return new SuccessDataResult<>(statement);
 		} catch (SQLException e) {
-			return new ErrorDataResult<>(new SQLException(DbErrorMessages.INSERTION_FAILED, e).toString());
-		}
-
-		return new SuccessDataResult<>(statement);
-	}
-
-	@Override
-	public DataResult<Long> addCardProductToCart(CartProduct cardProduct) { // transaction yapılmalı
-		DataResult<Long> addCardProcutResult = cartProductManager.insertAndReturnGeneratedId(cardProduct);
-		if (!addCardProcutResult.isSuccess())
-			return addCardProcutResult;
-
-		DataResult<PreparedStatement> createUpdateTotalAmountStatementResult = createUpdateTotalAmountStatement(
-				SqlStrings.UPDATE_TOTAL_AMOUNT, cardProduct.getLineAmount(), cardProduct.getCartId());
-		if (!createUpdateTotalAmountStatementResult.isSuccess())
-			return new ErrorDataResult<>(DbErrorMessages.UPDATE_FAILED);
-
-		DataResult<Long> executeUpdataResult = super.executeUpdateAndCheckStatus(
-				createUpdateTotalAmountStatementResult.getData());
-
-		if (executeUpdataResult.isSuccess()) {
-			return addCardProcutResult;
-		} else {
-			return new ErrorDataResult<>(DbErrorMessages.UPDATE_FAILED);
+			return new ErrorDataResult<>(DbErrorMessages.INSERTION_FAILED);
 		}
 	}
 
 	@Override
-	public DataResult<CartProduct> deleteCardProductFromCart(long cardProductId) {
-		DataResult<CartProduct> result = cartProductManager.deleteAndReturn(cardProductId);
+	public DataResult<Long> addCardProductToCart(CartProduct cardProduct) { 
+		try {
+			Result connectionResult = connect();
+			if(!connectionResult.isSuccess())
+				return new ErrorDataResult<>(connectionResult.getMessage());
+			
+			
+			connection.setAutoCommit(false);
+			
+			DataResult<Long> addCardProcutResult = cartProductManager.insertAndReturnGeneratedId(cardProduct);
+			if (!addCardProcutResult.isSuccess())
+				return addCardProcutResult;
+			
+			DataResult<PreparedStatement> createUpdateTotalAmountStatementResult = createUpdateTotalAmountStatement(
+					SqlStrings.UPDATE_TOTAL_AMOUNT, cardProduct.getLineAmount(), cardProduct.getCartId());
+			if (!createUpdateTotalAmountStatementResult.isSuccess())
+				return new ErrorDataResult<>(DbErrorMessages.UPDATE_FAILED);
 
-		if (!result.isSuccess())
-			return new ErrorDataResult<>(result.getMessage());
+			DataResult<Long> executeUpdataResult = super.executeUpdateAndCheckStatus(
+					createUpdateTotalAmountStatementResult.getData());
+			
+			if(!executeUpdataResult.isSuccess())
+				return new ErrorDataResult<>(DbErrorMessages.INSERTION_FAILED);
+			
+			connection.commit();
+			
+			
+			return addCardProcutResult;
+		} catch (SQLException e) {
+			e.printStackTrace();
+			if(connection != null) {
+				try {
+					connection.rollback();
+				} catch (SQLException e1) {
+					e1.printStackTrace();
+					return new ErrorDataResult<>(DbErrorMessages.TRANSACTION_ROLLBACK_ERROR);
+				}
+			}
+			return new ErrorDataResult<>(DbErrorMessages.INSERTION_FAILED);
+		} finally {
+			disconnect();
+		}
+	}
 
-		return new SuccessDataResult<>(result.getData());
+	@Override
+	public DataResult<CartProduct> deleteCardProductFromCart(long cardProductId) {	
+		return cartProductManager.deleteAndReturn(cardProductId);
 	}
 
 	@Override
 	public DataResult<List<Cart>> listAll() {
-		return super.listAll(SqlStrings.SELECT_ALL_STRING);
+		try {
+			Result connectionResult = connect();
+			if(!connectionResult.isSuccess())
+				return new ErrorDataResult<>(connectionResult.getMessage());
+			
+			return super.listAll(SqlStrings.SELECT_ALL_STRING);
+		} finally {
+			disconnect();
+		}
 	}
 
 	private DataResult<PreparedStatement> createUpdateTotalAmountStatement(String sql, double amount, long id) {
 		try {
-			connect();
-		} catch (SQLException e) {
-			return new ErrorDataResult<>(DbErrorMessages.CONNECTION_FAILED);
-		}
-
-		PreparedStatement statement;
-		try {
-			statement = connection.prepareStatement(sql);
+			PreparedStatement statement = connection.prepareStatement(sql);
+			
 			statement.setDouble(1, amount);
 			statement.setLong(2, id);
+			
 			return new SuccessDataResult<>(statement);
-		} catch (SQLException e) {
+		} catch (SQLException e1) {
+			e1.printStackTrace();
 			return new ErrorDataResult<>(DbErrorMessages.SELECT_FAILED);
 		}
 	}

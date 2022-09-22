@@ -13,6 +13,8 @@ import constants.WebConstants;
 import entities.concretes.*;
 import managers.abstracts.ProductManagerI;
 import managers.concretes.ProductManager;
+import results.DataResult;
+import utils.StreamUtils;
 import utils.XmlUtils;
 import xmlUtils.abstracts.XmlUtilI;
 import xmlUtils.concretes.ProductXmlUtil;
@@ -32,19 +34,29 @@ public class ProductFindByCategoryServlet extends HttpServlet {
 
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
+		response.setContentType(WebConstants.XML_CONTENT_TYPE);
+
+		long categoryId = Long.parseLong(request.getParameter("categoryId"));
+		DataResult<List<Product>> resultFromFindByCategoryId = productManager.findByCategory(categoryId);
+		
+		Document outputDocument;
 		try {
-			long categoryId = Long.parseLong(request.getParameter("categoryId"));
+			if(resultFromFindByCategoryId.isSuccess()) {
+				List<Product> products = resultFromFindByCategoryId.getData();
+				DataResult<Document> resultFromFormatter = productXmlUtil.format(products);
+				
+				outputDocument = XmlUtils.setSuccessTrueIfSuccessfulOtherwiseCreateSuccessFalseDocument(resultFromFormatter);	
+				
+				StreamUtils.setResponseStatus(resultFromFormatter, response, HttpServletResponse.SC_OK, HttpServletResponse.SC_BAD_REQUEST);
+			} else {
+				outputDocument = XmlUtils.createSuccessFalseXml();
+				response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+			}
 
-			List<Product> products = productManager.findByCategory(categoryId).getData();
-
-			Document document = (Document) productXmlUtil.format(products).getData();
-
-			response.setContentType(WebConstants.XML_CONTENT_TYPE);
-
-			XmlUtils.dump(document, response.getOutputStream());
-
+			XmlUtils.dump(outputDocument, response.getOutputStream());
 		} catch (Exception e) {
 			e.printStackTrace();
+			response.sendError(HttpServletResponse.SC_BAD_REQUEST);
 		}
 
 	}

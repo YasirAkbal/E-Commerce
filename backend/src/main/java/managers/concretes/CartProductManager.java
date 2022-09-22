@@ -19,22 +19,38 @@ class CartProductManager extends BasePostgreSqlManager<CartProduct> implements C
 
 	@Override
 	public Result insert(CartProduct cartProduct) {
-		DataResult<PreparedStatement> result = createInsertStatement(cartProduct);
+		try {
+			Result connectionResult = connect();
+			if(!connectionResult.isSuccess())
+				return connectionResult;
+			
+			DataResult<PreparedStatement> result = createInsertStatement(cartProduct);
 
-		if (!result.isSuccess())
-			return new ErrorResult(DbErrorMessages.INSERTION_FAILED);
+			if (!result.isSuccess())
+				return new ErrorResult(DbErrorMessages.INSERTION_FAILED);
 
-		return super.insert(result.getData());
+			return super.insert(result.getData());
+		} finally {
+			disconnect();
+		}
 	}
 
 	@Override
 	public DataResult<Long> insertAndReturnGeneratedId(CartProduct cartProduct) {
-		DataResult<PreparedStatement> result = createInsertStatement(cartProduct);
+		try {
+			Result connectionResult = connect();
+			if(!connectionResult.isSuccess())
+				return new ErrorDataResult<>(connectionResult.getMessage());
+			
+			DataResult<PreparedStatement> result = createInsertStatement(cartProduct);
 
-		if (!result.isSuccess())
-			return new ErrorDataResult<>(DbErrorMessages.INSERTION_FAILED);
+			if (!result.isSuccess())
+				return new ErrorDataResult<>(DbErrorMessages.INSERTION_FAILED);
 
-		return super.insertAndReturnGeneratedKey(result.getData());
+			return super.insertAndReturnGeneratedKey(result.getData());	
+		} finally {
+			disconnect();
+		}
 	}
 
 	@Override
@@ -45,54 +61,57 @@ class CartProductManager extends BasePostgreSqlManager<CartProduct> implements C
 
 	@Override
 	public Result delete(Long id) {
+		Result connectionResult = connect();
+		if(!connectionResult.isSuccess())
+			return connectionResult;
+		
 		try {
-			connect();
-		} catch (SQLException e) {
-			return new ErrorDataResult<>(new SQLException(DbErrorMessages.CONNECTION_FAILED, e).toString());
-		}
-
-		PreparedStatement statement = null;
-
-		try {
-			statement = connection.prepareStatement(SqlStrings.DELETE_STRING);
+			PreparedStatement statement = connection.prepareStatement(SqlStrings.DELETE_STRING);
 			statement.setLong(1, id);
-		} catch (SQLException e) {
-			return new ErrorDataResult<>(new SQLException(DbErrorMessages.DELETION_FAILED, e).toString());
+			
+			return super.delete(statement);
+		} catch (SQLException e1) {
+			e1.printStackTrace();
+			return new ErrorDataResult<>(DbErrorMessages.DELETION_FAILED);
+		} finally {
+			disconnect();
 		}
-
-		return super.delete(statement);
 	}
 
 	@Override
 	public DataResult<CartProduct> find(Long id) {
 		try {
-			connect();
-		} catch (SQLException e) {
-			return new ErrorDataResult<>(new SQLException(DbErrorMessages.CONNECTION_FAILED, e).toString());
+			Result connectionResult = connect();
+			if(!connectionResult.isSuccess())
+				return new ErrorDataResult<>(connectionResult.getMessage());
+			
+			DataResult<PreparedStatement> result = createStatementAndSetId(SqlStrings.SELECT_BY_ID_STRING, id);
+
+			if (!result.isSuccess())
+				return new ErrorDataResult<>(DbErrorMessages.SELECT_FAILED);
+
+			return super.find(result.getData());
+		} finally {
+			disconnect();
 		}
-
-		DataResult<PreparedStatement> result = createFindByIdStatement(SqlStrings.SELECT_BY_ID_STRING, id);
-
-		if (!result.isSuccess())
-			return new ErrorDataResult<>(DbErrorMessages.SELECT_FAILED);
-
-		return super.find(result.getData());
 	}
 
 	@Override
 	public DataResult<List<CartProduct>> listAllByCartId(long cartId) {
 		try {
-			connect();
-		} catch (SQLException e) {
-			return new ErrorDataResult<>(new SQLException(DbErrorMessages.CONNECTION_FAILED, e).toString());
+			Result connectionResult = connect();
+			if(!connectionResult.isSuccess())
+				return new ErrorDataResult<>(connectionResult.getMessage());
+			
+			DataResult<PreparedStatement> result = createStatementAndSetId(SqlStrings.SELECT_BY_CART_ID_STRING, cartId);
+
+			if (!result.isSuccess())
+				return new ErrorDataResult<>(DbErrorMessages.SELECT_FAILED);
+
+			return super.listAll(result.getData());
+		} finally {
+			disconnect();
 		}
-
-		DataResult<PreparedStatement> result = createFindByIdStatement(SqlStrings.SELECT_BY_CART_ID_STRING, cartId);
-
-		if (!result.isSuccess())
-			return new ErrorDataResult<>(DbErrorMessages.SELECT_FAILED);
-
-		return super.listAll(result.getData());
 	}
 
 	@Override
@@ -114,50 +133,43 @@ class CartProductManager extends BasePostgreSqlManager<CartProduct> implements C
 
 	private DataResult<PreparedStatement> createInsertStatement(CartProduct cartProduct) {
 		try {
-			connect();
-		} catch (SQLException e) {
-			return new ErrorDataResult<>(new SQLException(DbErrorMessages.CONNECTION_FAILED, e).toString());
-		}
-
-		PreparedStatement statement;
-		try {
-			statement = connection.prepareStatement(SqlStrings.INSERT_STRING, Statement.RETURN_GENERATED_KEYS);
+			PreparedStatement statement = connection.prepareStatement(SqlStrings.INSERT_STRING, Statement.RETURN_GENERATED_KEYS);
+			
 			statement.setLong(1, cartProduct.getCartId());
 			statement.setLong(2, cartProduct.getProductId());
 			statement.setInt(3, cartProduct.getSalesQuantity());
 			statement.setDouble(4, cartProduct.getSalesPrice());
 			statement.setDouble(5, cartProduct.getTaxRate());
 			statement.setDouble(6, cartProduct.getLineAmount());
-		} catch (SQLException e) {
-			return new ErrorDataResult<>(new SQLException(DbErrorMessages.INSERTION_FAILED, e).toString());
-		}
-
-		return new SuccessDataResult<>(statement);
+			
+			return new SuccessDataResult<>(statement);
+		} catch (SQLException e1) {
+			e1.printStackTrace();
+			return new ErrorDataResult<>(DbErrorMessages.INSERTION_FAILED);
+		}		
 	}
 
 	@Override
 	public DataResult<CartProduct> deleteAndReturn(Long id) {
 		try {
-			connect();
-		} catch (SQLException e) {
-			return new ErrorDataResult<>(new SQLException(DbErrorMessages.CONNECTION_FAILED, e).toString());
+			Result connectionResult = connect();
+			if(!connectionResult.isSuccess())
+				return new ErrorDataResult<>(connectionResult.getMessage());
+			
+			DataResult<PreparedStatement> resultForFindByIdStatement = createStatementAndSetId(SqlStrings.SELECT_BY_ID_STRING, id);
+			if (!resultForFindByIdStatement.isSuccess())
+				return new ErrorDataResult<>(DbErrorMessages.SELECT_FAILED);
+			PreparedStatement findStatement = resultForFindByIdStatement.getData();
+			
+			DataResult<PreparedStatement> resultForCreateDeleteStatement = createStatementAndSetId(SqlStrings.DELETE_STRING, id);
+			if (!resultForCreateDeleteStatement.isSuccess())
+				return new ErrorDataResult<>(DbErrorMessages.SELECT_FAILED);
+			PreparedStatement deleteStatement = resultForCreateDeleteStatement.getData();
+
+			return super.deleteAndReturn(findStatement, deleteStatement);
+		} finally {
+			disconnect();
 		}
-
-		PreparedStatement statement;
-
-		try {
-			statement = connection.prepareStatement(SqlStrings.DELETE_STRING);
-			statement.setLong(1, id);
-		} catch (SQLException e) {
-			return new ErrorDataResult<>(new SQLException(DbErrorMessages.DELETION_FAILED, e).toString());
-		}
-
-		DataResult<PreparedStatement> result = createFindByIdStatement(SqlStrings.SELECT_BY_ID_STRING, id);
-
-		if (!result.isSuccess())
-			return new ErrorDataResult<>(DbErrorMessages.SELECT_FAILED);
-
-		return super.deleteAndReturn(result.getData(), statement);
 	}
 
 	private static class SqlStrings {

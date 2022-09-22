@@ -1,5 +1,6 @@
 package managers.concretes;
 
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -19,11 +20,19 @@ public class UserManager extends BasePostgreSqlManager<User> implements UserMana
 
 	@Override
 	public Result insert(User user) {
-		DataResult<PreparedStatement> result = createInsertStatement(user);
-		if (!result.isSuccess())
-			return new ErrorResult(DbErrorMessages.INSERTION_FAILED);
+		try {
+			Result connectionResult = connect();
+			if(!connectionResult.isSuccess())
+				return connectionResult;
+			
+			DataResult<PreparedStatement> result = createInsertStatement(user);
+			if (!result.isSuccess())
+				return new ErrorResult(DbErrorMessages.INSERTION_FAILED);
 
-		return super.insert(result.getData());
+			return super.insert(result.getData());
+		} finally {
+			disconnect();
+		}
 	}
 
 	@Override
@@ -34,35 +43,57 @@ public class UserManager extends BasePostgreSqlManager<User> implements UserMana
 
 	@Override
 	public Result delete(Long id) {
-		return super.deleteById(SqlStrings.DELETE_BY_ID_STRING, id);
+		try {
+			Result connectionResult = connect();
+			if(!connectionResult.isSuccess())
+				return connectionResult;
+			
+			return super.deleteById(SqlStrings.DELETE_BY_ID_STRING, id);
+		} finally {
+			disconnect();
+		}
 	}
 
 	@Override
 	public DataResult<User> find(Long id) {
-		return super.find(SqlStrings.SELECT_BY_ID_STRING, id);
+		try {
+			Result connectionResult = connect();
+			if(!connectionResult.isSuccess())
+				return new ErrorDataResult<>(connectionResult.getMessage());
+			
+			return super.find(SqlStrings.SELECT_BY_ID_STRING, id);
+		} finally {
+			disconnect();
+		}
 	}
 
 	@Override
 	public DataResult<Long> insertAndReturnGeneratedId(User user) {
-		DataResult<PreparedStatement> result = createInsertStatement(user);
+		try {
+			Result connectionResult = connect();
+			if(!connectionResult.isSuccess())
+				return new ErrorDataResult<>(connectionResult.getMessage());
+			
+			DataResult<PreparedStatement> result = createInsertStatement(user);
 
-		if (!result.isSuccess())
-			return new ErrorDataResult<>(DbErrorMessages.INSERTION_FAILED);
+			if (!result.isSuccess())
+				return new ErrorDataResult<>(DbErrorMessages.INSERTION_FAILED);
 
-		return super.insertAndReturnGeneratedKey(result.getData());
+			return super.insertAndReturnGeneratedKey(result.getData());
+		} finally {
+			disconnect();
+		}
 	}
 
 	@Override
 	public DataResult<User> checkCredentials(String username, String password) {
+		Result connectionResult = connect();
+		if(!connectionResult.isSuccess())
+			return new ErrorDataResult<>(connectionResult.getMessage());
+		
 		try {
-			connect();
-		} catch (SQLException e) {
-			return new ErrorDataResult<>(new SQLException(DbErrorMessages.CONNECTION_FAILED, e).toString());
-		}
-
-		PreparedStatement statement;
-		try {
-			statement = connection.prepareStatement(SqlStrings.CHECK_USERNAME_PASSWORD_STRING);
+			PreparedStatement statement = connection.prepareStatement(SqlStrings.CHECK_USERNAME_PASSWORD_STRING);
+			
 			statement.setString(1, username);
 			statement.setString(2, password);
 			ResultSet resultSet = statement.executeQuery();
@@ -70,27 +101,33 @@ public class UserManager extends BasePostgreSqlManager<User> implements UserMana
 				DataResult<User> parseResult = parse(resultSet);
 				if (!parseResult.isSuccess())
 					return parseResult;
+				
 				User user = parseResult.getData();
+				
 				return new SuccessDataResult<>(user);
 			} else {
 				return new ErrorDataResult<>("Username or password is invalid");
 			}
-		} catch (SQLException e) {
+		} catch (SQLException e1) {
+			e1.printStackTrace();
 			return new ErrorDataResult<>(DbErrorMessages.SELECT_FAILED);
+		} finally {
+			disconnect();
 		}
 	}
 
 	@Override
 	protected DataResult<User> parse(ResultSet resultSet) {
 		User user;
-
 		long id;
 		String username, password;
+		
 		try {
 			id = resultSet.getLong(TableColumnNames.ID);
 			username = resultSet.getString(TableColumnNames.USERNAME);
 			password = resultSet.getString(TableColumnNames.PASSWORD);
-		} catch (SQLException e) {
+		} catch (SQLException e1) {
+			e1.printStackTrace();
 			return new ErrorDataResult<>(DbErrorMessages.RESULT_SET_PARSING_ERROR);
 		}
 
@@ -99,28 +136,27 @@ public class UserManager extends BasePostgreSqlManager<User> implements UserMana
 		return new SuccessDataResult<>(user);
 	}
 
-	private DataResult<PreparedStatement> createInsertStatement(User user) {
-		try {
-			connect();
-		} catch (SQLException e) {
-			return new ErrorDataResult<>(new SQLException(DbErrorMessages.CONNECTION_FAILED, e).toString());
-		}
-
-		PreparedStatement statement;
-		try {
-			statement = connection.prepareStatement(SqlStrings.INSERT_STRING, Statement.RETURN_GENERATED_KEYS);
+	private DataResult<PreparedStatement> createInsertStatement(User user) {		
+		try  {
+			PreparedStatement statement = connection.prepareStatement(SqlStrings.INSERT_STRING, Statement.RETURN_GENERATED_KEYS);
+			
 			statement.setString(1, user.getUsername());
 			statement.setString(2, user.getPassword());
-		} catch (SQLException e) {
-			return new ErrorDataResult<>(new SQLException(DbErrorMessages.INSERTION_FAILED, e).toString());
-		}
-
-		return new SuccessDataResult<>(statement);
+			
+			return new SuccessDataResult<>(statement);
+		} catch (SQLException e1) {
+			e1.printStackTrace();
+			return new ErrorDataResult<>(DbErrorMessages.INSERTION_FAILED);
+		} 
 	}
 
 	@Override
 	public DataResult<List<User>> listAll() {
-		return super.listAll(SqlStrings.SELECT_ALL);
+		try {
+			return super.listAll(SqlStrings.SELECT_ALL);
+		} finally {
+			disconnect();
+		}
 	}
 
 	private static class SqlStrings {

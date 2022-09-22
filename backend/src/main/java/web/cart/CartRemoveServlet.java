@@ -7,6 +7,7 @@ import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 import org.w3c.dom.Document;
 import constants.WebConstants;
@@ -14,6 +15,7 @@ import entities.concretes.*;
 import managers.abstracts.CartManagerI;
 import managers.concretes.CartManager;
 import results.DataResult;
+import utils.StreamUtils;
 import utils.XmlUtils;
 import xmlUtils.abstracts.XmlUtilI;
 import xmlUtils.concretes.CartProductXmlUtil;
@@ -35,16 +37,26 @@ public class CartRemoveServlet extends HttpServlet {
 		resp.setContentType(WebConstants.XML_CONTENT_TYPE);
 
 		long cartProductId = Long.parseLong(req.getParameter("cartProductId"));
-
-		DataResult<CartProduct> result = cartManager.deleteCardProductFromCart(cartProductId);
-		if (result.isSuccess()) {
-			Document document = (Document) cartProductXmlUtil.format(result.getData()).getData();
-
-			try {
-				XmlUtils.dump(document, resp.getOutputStream());
-			} catch (IOException | TransformerException e) {
-				e.printStackTrace();
+		DataResult<CartProduct> resultFromManager = cartManager.deleteCardProductFromCart(cartProductId);
+		
+		Document outputDocument;
+		try {
+			if (resultFromManager.isSuccess()) {
+				CartProduct deletedCartProduct = resultFromManager.getData();
+				
+				DataResult<Document> resultFromFormatter = cartProductXmlUtil.format(deletedCartProduct);
+				outputDocument = XmlUtils.setSuccessTrueIfSuccessfulOtherwiseCreateSuccessFalseDocument(resultFromFormatter);
+				
+				StreamUtils.setResponseStatus(resultFromFormatter, resp, HttpServletResponse.SC_OK, HttpServletResponse.SC_BAD_REQUEST);
+			} else {
+				outputDocument = XmlUtils.createSuccessFalseXml();
+				resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
 			}
+						
+			XmlUtils.dump(outputDocument, resp.getOutputStream());
+		} catch (IOException | TransformerException | ParserConfigurationException e) {
+			e.printStackTrace();
+			resp.sendError(HttpServletResponse.SC_BAD_REQUEST);
 		}
 	}
 }
