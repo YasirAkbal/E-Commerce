@@ -1,6 +1,6 @@
 # E-Commerce
 
-Technologies Used:
+Technologies/Keywords:
 
 	PostgreSQL
 	JDBC
@@ -11,5 +11,3 @@ Technologies Used:
 	XML
 	XML Over HTTP
 	HTTP Client
-	JSP
-	HTML
