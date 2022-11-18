@@ -8,6 +8,5 @@ Technologies/Keywords:
 	Tomcat
 	Servlet
 	REST
-	XML
-	XML Over HTTP
+	XML & XML Over HTTP
 	HTTP Client
